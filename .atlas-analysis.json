@@ -1,0 +1,83 @@
+{
+  "projectType": "saas",
+  "projectName": "HealthIA",
+  "projectDescription": "An AI-powered medical diagnosis assistant that predicts conditions from user-reported symptoms using a trained XGBoost model via a FastAPI backend and React frontend.",
+  "theme": "almond",
+  "primaryColor": "#0EA5E9",
+  "lightColor": "#E0F2FE",
+  "darkColor": "#0369A1",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/symptom-input",
+              "features/diagnosis-prediction",
+              "features/history-export"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/backend",
+              "architecture/frontend",
+              "architecture/ml-model"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/local-setup",
+              "deployment/environment-variables",
+              "deployment/production"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/overview",
+              "api/welcome",
+              "api/predict"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "AI-driven symptom-to-diagnosis prediction using XGBoost classifier",
+    "TF-IDF vectorization of free-text symptom descriptions",
+    "FastAPI REST backend with CORS support for flexible deployment",
+    "React + TypeScript frontend with Tailwind CSS and dark mode",
+    "Local diagnosis history with repeat and export capabilities",
+    "Support for 20 medical conditions trained on a curated Portuguese-language dataset",
+    "Configurable API base URL via environment variable (VITE_API_BASE_URL)",
+    "Medical disclaimer to clarify non-clinical usage"
+  ],
+  "publicApiSurface": [
+    "GET / — Welcome message and API health check",
+    "GET /predict/?sintomas={string} — Predict diagnosis from comma-separated symptom string",
+    "DiagnosticoIA.predict_simples(sintomas: list | str) — Core prediction method",
+    "treinar_modelo() — Train XGBoost model on symptom dataset",
+    "acuracia_modelo() — Evaluate model accuracy on test split",
+    "salvar_modelo() — Persist trained model to model/modelo_HealthIA.json",
+    "salvar_vetorizador() — Persist TF-IDF vectorizer to model/vetorizador_HealthIA.pkl",
+    "salvar_encoderY() — Persist label encoder to model/encoderY_HealthIA.pkl",
+    "dataset_completo() — Return full symptom-diagnosis DataFrame",
+    "api.predictSymptoms(symptoms: string[]) — Frontend API call for prediction",
+    "api.getWelcome() — Frontend API call for health check"
+  ]
+}
