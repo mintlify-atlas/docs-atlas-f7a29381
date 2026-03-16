@@ -1,0 +1,52 @@
+---
+title: 'GET /'
+description: 'Health check and welcome message endpoint'
+---
+
+Returns a welcome message to confirm the API is running. Use this endpoint to verify connectivity before submitting symptoms.
+
+## Request
+
+**Method:** `GET`  
+**Path:** `/`  
+**Parameters:** None
+
+## Response
+
+<ResponseField name="Message" type="string" required>
+  A static welcome message confirming the API is online.
+</ResponseField>
+
+```json
+{
+  "Message": "Welcome to HealthIA API"
+}
+```
+
+## HTTP status codes
+
+| Code | Description |
+| --- | --- |
+| `200 OK` | The API is running and returned a welcome message |
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL
+curl http://127.0.0.1:8000/
+```
+
+```typescript TypeScript
+import { api } from '@/services/api';
+import type { WelcomeResponse } from '@/types/api';
+
+const response: WelcomeResponse = await api.getWelcome();
+console.log(response.Message); // "Welcome to HealthIA API"
+```
+
+</CodeGroup>
+
+<Note>
+  The frontend wraps this call in `api.getWelcome()`, which is defined in `src/services/api.ts`. The base URL is read from `VITE_API_BASE_URL` at build time.
+</Note>

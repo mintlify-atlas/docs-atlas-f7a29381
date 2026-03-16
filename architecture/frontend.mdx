@@ -1,0 +1,147 @@
+---
+title: 'Frontend architecture'
+description: 'React + TypeScript SPA structure and component design'
+---
+
+The frontend is a single-page application built with React 18 and TypeScript. It communicates with the FastAPI backend through a thin `api` service object and stores diagnosis history in the browser's `localStorage`.
+
+## Tech stack
+
+| Package | Version | Role |
+|---|---|---|
+| `react` | ^18.3.1 | UI component model |
+| `react-dom` | ^18.3.1 | DOM rendering |
+| `typescript` | ^5.6.3 | Static type checking |
+| `vite` | ^5.4.11 | Dev server and production bundler |
+| `tailwindcss` | ^3.4.17 | Utility-first CSS |
+| `@vitejs/plugin-react` | ^4.3.4 | Fast Refresh and JSX transform |
+
+## Entry point and component tree
+
+```
+main.tsx
+  └── App.tsx
+        └── HomePage.tsx
+              ├── Header
+              ├── (stats cards)
+              ├── SymptomInput
+              ├── (submit Card)
+              │     └── MedicalDisclaimer
+              ├── PredictionResult  (conditional)
+              └── HistoryPanel
+```
+
+`App.tsx` is minimal — it renders `HomePage` directly:
+
+```tsx App.tsx
+import { HomePage } from '@/pages/HomePage';
+
+export default function App() {
+  return <HomePage />;
+}
+```
+
+All application state lives in `HomePage`.
+
+## Key components
+
+### `Header`
+
+Renders the application title, a dark/light theme toggle button, and an API status badge. The badge is driven by the `apiStatus` state (`'checking'` | `'online'` | `'offline'`) that `HomePage` sets after calling `api.getWelcome()` on mount.
+
+### `SymptomInput`
+
+Provides tag-based symptom entry. Users can type free text or pick from the `COMMON_SYMPTOMS` constant list (autocomplete suggestions). Each confirmed symptom becomes a removable tag. The component is controlled: it receives `symptoms` and an `onChange` callback from `HomePage`.
+
+### `PredictionResult`
+
+Displays the predicted diagnosis returned by the API. Rendered only when `result` state is non-null. Exposes two actions:
+- **Export** — serializes the result to a `.txt` file via `buildExportText()` and triggers a browser download.
+- **Reset** — clears `result` and `resultCreatedAt` state to return to the empty placeholder card.
+
+### `HistoryPanel`
+
+Reads the `history` array from the `useDiagnosisHistory` hook and renders past diagnoses. Each entry has a **Repeat** button that calls `handleRepeatHistory`, which sets `symptoms` to the stored list and re-runs the prediction immediately.
+
+### `MedicalDisclaimer`
+
+A static component that renders a persistent disclaimer reminding users that HealthIA is not a substitute for professional medical advice. It is always visible within the submission card.
+
+## Custom hooks
+
+### `useDiagnosisHistory`
+
+Manages a `localStorage`-backed array of past diagnoses. The hook exposes:
+
+| Member | Type | Description |
+|---|---|---|
+| `history` | `DiagnosisHistoryItem[]` | All saved entries, newest first |
+| `addEntry` | `(item) => void` | Prepends a new entry and persists to `localStorage` |
+| `clearHistory` | `() => void` | Empties the array and removes the `localStorage` key |
+
+Each `DiagnosisHistoryItem` has `createdAt` (ISO timestamp), `symptoms` (string array), and `diagnosis` (string array) fields.
+
+### `useTheme`
+
+Toggles between `'light'` and `'dark'` themes. The current theme is persisted to `localStorage` and applied by toggling the `dark` class on the document root. Returns `{ theme, toggleTheme }`.
+
+## API service — `services/api.ts`
+
+All HTTP calls go through the `api` object:
+
+```typescript services/api.ts
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
+).replace(/\/$/, '');
+
+async function request<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro na API (${response.status})`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  baseUrl: API_BASE_URL,
+  getWelcome: () => request<WelcomeResponse>('/'),
+  predictSymptoms: (symptoms: string[]) => {
+    const sintomas = symptoms.join(',');
+    return request<PredictResponse>(`/predict/?sintomas=${encodeURIComponent(sintomas)}`);
+  },
+};
+```
+
+`predictSymptoms` joins the symptom array with commas and URL-encodes the result before appending it as the `sintomas` query parameter.
+
+### Environment variable
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://127.0.0.1:8000` | Base URL of the FastAPI backend. Set this in `.env.local` for development or as a build-time variable for production deployments. |
+
+<Note>
+  The trailing slash is stripped from `VITE_API_BASE_URL` at runtime (`.replace(/\/$/, '')`), so `http://localhost:8000/` and `http://localhost:8000` both work correctly.
+</Note>
+
+## State management in `HomePage`
+
+`HomePage` owns all application state. There is no global store — props and callbacks flow down to child components:
+
+| State variable | Type | Purpose |
+|---|---|---|
+| `symptoms` | `string[]` | Current symptom tags in the input |
+| `result` | `PredictResponse \| null` | Last successful prediction response |
+| `resultCreatedAt` | `string \| null` | ISO timestamp of the last prediction |
+| `formError` | `string \| null` | Validation error shown near the submit button |
+| `requestError` | `string \| null` | Network or API error shown as an alert |
+| `isLoading` | `boolean` | Disables the submit button and shows a spinner |
+| `apiStatus` | `'checking' \| 'online' \| 'offline'` | Backend reachability, checked on mount |
+
+<Tip>
+  `canSubmit` is a derived boolean: `symptoms.length >= MIN_SYMPTOMS && symptoms.length <= MAX_SYMPTOMS && !isLoading`. Neither `MIN_SYMPTOMS` nor `MAX_SYMPTOMS` are magic numbers — they are exported constants from `@/constants/symptoms`.
+</Tip>

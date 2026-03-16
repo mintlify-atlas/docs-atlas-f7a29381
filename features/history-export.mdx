@@ -1,0 +1,102 @@
+---
+title: 'History and export'
+description: 'Saving, reviewing, and exporting past diagnosis results'
+---
+
+Every successful prediction is automatically saved to a local history and can be re-run or exported as a plain-text file.
+
+## Local history
+
+HealthIA stores diagnosis history in the browser's `localStorage` under the key `healthia-history`. No data is sent to a server.
+
+<Note>
+History is local to the browser and device. It is not synced, backed up, or visible to any other user or session. Clearing your browser data will erase the history.
+</Note>
+
+The history is managed by the `useDiagnosisHistory` hook, which:
+
+- Reads persisted entries from `localStorage` on page load
+- Prepends each new diagnosis entry to the list
+- Caps the stored list at **10 entries** (oldest entries are dropped when the limit is exceeded)
+- Writes every change back to `localStorage` immediately
+
+Each entry stores:
+- A unique ID (timestamp + random suffix)
+- The ISO 8601 timestamp of when the analysis was created
+- The list of symptoms that were analysed
+- The predicted diagnosis labels
+
+## History panel UI
+
+The **Histórico de consultas** panel sits at the bottom of the home page and lists all saved entries in reverse-chronological order (newest first).
+
+Each entry card shows:
+
+- The date and time of the analysis
+- The formatted diagnosis label(s)
+- The symptom chips used in that analysis
+- A **Repetir consulta** button
+
+When no entries exist, the panel shows a placeholder message inviting you to run your first analysis.
+
+## Repeating a past diagnosis
+
+Click **Repetir consulta** on any history entry. HealthIA will:
+
+1. Load that entry's symptom list back into the symptom input field
+2. Immediately re-run the prediction with those same symptoms
+3. Display the new result in the result card
+4. Add the new result as a fresh entry at the top of the history
+
+<Tip>
+Repeating a diagnosis generates a new API call and a new timestamp. The original history entry is preserved — repeating does not overwrite it.
+</Tip>
+
+## Clearing history
+
+Click **Limpar histórico** in the top-right corner of the history panel to delete all saved entries. The button is disabled when there are no entries. This action is immediate and cannot be undone.
+
+## Exporting results
+
+After a prediction completes, click **Exportar em texto** in the result card to download the current result as a `.txt` file.
+
+### File format
+
+The exported file contains five lines of plain text:
+
+```text
+HealthIA - Resultado de apoio clínico
+Data/Hora: DD/MM/YYYY HH:MM
+Sintomas informados: <comma-separated symptom list>
+Diagnóstico previsto: <formatted diagnosis label(s)>
+Aviso: Esta ferramenta é de apoio e não substitui avaliação médica profissional.
+```
+
+Example:
+
+```text
+HealthIA - Resultado de apoio clínico
+Data/Hora: 16/03/2026 14:32
+Sintomas informados: febre, cansaço, dor articular, manchas na pele
+Diagnóstico previsto: Doença Lyme
+Aviso: Esta ferramenta é de apoio e não substitui avaliação médica profissional.
+```
+
+### Filename pattern
+
+The downloaded file is named using the Unix millisecond timestamp of the result:
+
+```text
+healthia-resultado-{timestamp}.txt
+```
+
+Example: `healthia-resultado-1742131920000.txt`
+
+This ensures each exported file has a unique name even if multiple results are exported in the same session.
+
+## Limitations
+
+- History is stored only in the current browser's `localStorage`. It is not available in other browsers, devices, or private/incognito sessions.
+- The maximum history size is 10 entries. Older entries are dropped automatically.
+- There is no bulk export for the full history — only the currently displayed result can be exported at a time.
+- Clearing browser storage or using private browsing mode will result in an empty history on the next visit.

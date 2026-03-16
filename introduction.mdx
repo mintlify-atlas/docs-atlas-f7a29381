@@ -1,0 +1,76 @@
+---
+title: Introduction
+description: AI-powered medical diagnosis assistant that predicts conditions from user-reported symptoms
+---
+
+# Welcome to HealthIA
+
+HealthIA is an intelligent diagnostic assistant that uses machine learning to predict medical conditions from natural-language symptom descriptions. You describe how you feel — HealthIA returns a probable diagnosis in seconds.
+
+<Warning>
+  HealthIA is a research and educational tool. It is **not a substitute for professional medical advice**. Always consult a qualified healthcare provider for any medical concerns.
+</Warning>
+
+## How it works
+
+HealthIA combines a FastAPI backend with a trained XGBoost classifier to analyze symptoms and return predicted diagnoses. The frontend is a React + TypeScript single-page application that communicates directly with the API.
+
+<CardGroup cols={2}>
+  <Card title="Symptom Input" icon="stethoscope" href="/features/symptom-input">
+    Enter symptoms as free text or select from a curated suggestion list
+  </Card>
+  <Card title="AI Diagnosis" icon="brain" href="/features/diagnosis-prediction">
+    XGBoost model predicts from 20 supported medical conditions
+  </Card>
+  <Card title="History & Export" icon="clock-rotate-left" href="/features/history-export">
+    Review past diagnoses and export results as text files
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Integrate with the REST API directly from your own application
+  </Card>
+</CardGroup>
+
+## Tech stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | Python 3, FastAPI, Uvicorn |
+| ML Model | XGBoost, scikit-learn, TF-IDF vectorization |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Deployment | Railway (backend), Vite preview / static host (frontend) |
+
+## Supported conditions
+
+HealthIA can predict the following 20 medical conditions based on symptom patterns:
+
+<AccordionGroup>
+  <Accordion title="Autoimmune & inflammatory">
+    Lupus, Rheumatoid Arthritis, Multiple Sclerosis, Sjögren's Syndrome, Myasthenia Gravis
+  </Accordion>
+  <Accordion title="Neurological & degenerative">
+    Alzheimer's Disease, Parkinson's Disease, Lateral Sclerosis (ALS), Wilson's Disease
+  </Accordion>
+  <Accordion title="Metabolic & endocrine">
+    Type 1 Diabetes, Hyperthyroidism, Hypothyroidism
+  </Accordion>
+  <Accordion title="Infectious & tick-borne">
+    Lyme Disease, Rocky Mountain Spotted Fever (Febre Maculosa)
+  </Accordion>
+  <Accordion title="Gastrointestinal">
+    Crohn's Disease, Porphyria
+  </Accordion>
+  <Accordion title="Chronic & systemic">
+    Fibromyalgia, Chronic Fatigue Syndrome, Sarcoidosis, Sickle Cell Anemia
+  </Accordion>
+</AccordionGroup>
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run HealthIA locally in under 5 minutes
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture/overview">
+    Understand the system design
+  </Card>
+</CardGroup>

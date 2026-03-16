@@ -1,0 +1,189 @@
+---
+title: 'Backend architecture'
+description: 'FastAPI service, routing, and service layer'
+---
+
+The backend is a single-process FastAPI application. All Python source files live under `HEALTHIA/`. The server is started with Uvicorn and exposes two HTTP endpoints on port `8000` by default.
+
+## Entry point — `main.py`
+
+`main.py` creates the FastAPI application instance, configures CORS, and mounts the symptoms router:
+
+```python main.py
+from api.sintomasAPI import router as sintomas_router
+import os
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(
+    title="HealthIA API",
+    description="API para predição de diagnósticos médicos com base em sintomas.",
+    version="1.0.0"
+)
+
+origins = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+]
+
+frontend_urls_env = os.getenv("FRONTEND_URLS", "").strip()
+if frontend_urls_env:
+    extra_origins = [url.strip().rstrip("/") for url in frontend_urls_env.split(",") if url.strip()]
+    origins.extend(extra_origins)
+
+frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+if frontend_url:
+    origins.append(frontend_url)
+
+allow_all_origins = os.getenv("ALLOW_ALL_ORIGINS", "false").lower() == "true"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if allow_all_origins else sorted(set(origins)),
+    allow_origin_regex=None if allow_all_origins else r"^https://.*\.up\.railway\.app$",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(sintomas_router, tags=["Sintomas"])
+```
+
+## CORS configuration
+
+The middleware is configured through three environment variables:
+
+| Variable | Type | Behaviour |
+|---|---|---|
+| `FRONTEND_URLS` | Comma-separated list of URLs | Each URL is trimmed and appended to the allowed origins list |
+| `FRONTEND_URL` | Single URL | Appended to the allowed origins list |
+| `ALLOW_ALL_ORIGINS` | `"true"` / `"false"` | When `true`, `allow_origins` is set to `["*"]` and the Railway regex is disabled |
+
+The default hardcoded origins (`http://127.0.0.1:5173` and `http://localhost:5173`) cover local Vite development. The regex `^https://.*\.up\.railway\.app$` allows any Railway deployment subdomain without listing each one explicitly.
+
+<Tip>
+  For local development, no environment variables are required. When deploying to a custom domain, set `FRONTEND_URL` to the production frontend origin.
+</Tip>
+
+## Router — `api/sintomasAPI.py`
+
+The router defines two endpoints:
+
+```python api/sintomasAPI.py
+from fastapi import APIRouter
+from services.executarService import DiagnosticoIA
+
+router = APIRouter()
+diagnosticoIA = DiagnosticoIA(caminhoModelo='model')
+
+@router.get("/")
+async def raiz():
+    return {"Message": "Welcome to HealthIA API"}
+
+@router.get("/predict/")
+async def predict(sintomas: str):
+    sintomas_list = sintomas.split(',')
+    diagnostico_previsto = diagnosticoIA.predict_simples(sintomas_list)
+    return {
+        "sintomas": sintomas_list,
+        "diagnostico_previsto": diagnostico_previsto
+    }
+```
+
+`DiagnosticoIA` is instantiated once at module import time. The `caminhoModelo='model'` argument points to the `model/` directory relative to the working directory from which Uvicorn is launched.
+
+### Endpoint reference
+
+| Method | Path | Query params | Response |
+|---|---|---|---|
+| `GET` | `/` | — | `{"Message": "Welcome to HealthIA API"}` |
+| `GET` | `/predict/` | `sintomas` (string, comma-separated) | `{"sintomas": [...], "diagnostico_previsto": [...]}` |
+
+<Note>
+  The `sintomas` query parameter is a single comma-separated string, not a repeated parameter. The router splits it with `sintomas.split(',')` before passing the list to the service.
+</Note>
+
+## Service layer — `DiagnosticoIA`
+
+`services/executarService.py` contains the `DiagnosticoIA` class that owns the three loaded artifacts and exposes a single prediction method:
+
+```python services/executarService.py
+import os
+import joblib
+import xgboost as xgb
+from services.datasetService import dataset_completo
+
+class DiagnosticoIA:
+
+    def __init__(self, caminhoModelo: str):
+        self.caminho_raiz = caminhoModelo
+        self.HealthIA = xgb.XGBClassifier()
+        self.HealthIA.load_model(
+            os.path.join(self.caminho_raiz, 'modelo_HealthIA.json')
+        )
+        self.vetorizadortfidf = joblib.load(
+            os.path.join(self.caminho_raiz, 'vetorizador_HealthIA.pkl')
+        )
+        self.encoderYPronto = joblib.load(
+            os.path.join(self.caminho_raiz, 'encoderY_HealthIA.pkl')
+        )
+
+    def predict_simples(self, sintomas):
+        if isinstance(sintomas, list):
+            sintomas_string = " ".join(sintomas)
+        else:
+            sintomas_string = sintomas
+
+        sintomas_vetorizados = self.vetorizadortfidf.transform([sintomas_string])
+        predicao = self.HealthIA.predict(sintomas_vetorizados)
+        pred_nome = (
+            self.encoderYPronto.classes_[int(predicao[0])]
+            if hasattr(self.encoderYPronto, 'classes_')
+            else str(predicao[0])
+        )
+
+        LabelY = dataset_completo()["diagnostico"].astype(str).unique()
+        label_pred = [LabelY[int(pred_nome[0])]]
+        return label_pred
+```
+
+### Constructor: model loading
+
+The constructor loads three artifacts from the `model/` directory:
+
+| Artifact | File | Loaded with |
+|---|---|---|
+| XGBoost classifier | `model/modelo_HealthIA.json` | `xgb.XGBClassifier().load_model()` |
+| TF-IDF vectorizer | `model/vetorizador_HealthIA.pkl` | `joblib.load()` |
+| Label encoder | `model/encoderY_HealthIA.pkl` | `joblib.load()` |
+
+### `predict_simples` method
+
+<Steps>
+  <Step title="Normalize input">
+    If `sintomas` is a Python list, it is joined into a single space-separated string. This matches the format the TF-IDF vectorizer was fitted on during training.
+  </Step>
+  <Step title="Vectorize">
+    `self.vetorizadortfidf.transform([sintomas_string])` produces a sparse TF-IDF matrix with one row.
+  </Step>
+  <Step title="Predict">
+    `self.HealthIA.predict(sintomas_vetorizados)` returns an array containing one integer class index.
+  </Step>
+  <Step title="Decode label">
+    The integer is looked up in `self.encoderYPronto.classes_` to recover the condition name string, then cross-referenced against the unique labels in the dataset to produce the final output list.
+  </Step>
+</Steps>
+
+## Python dependencies
+
+Key packages from `requirements.txt`:
+
+```text requirements.txt
+fastapi==0.131.0
+uvicorn==0.41.0
+scikit-learn==1.7.1
+xgboost==3.2.0
+joblib==1.5.3
+numpy==2.4.2
+pandas==3.0.1
+```

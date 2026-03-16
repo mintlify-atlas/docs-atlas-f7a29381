@@ -1,0 +1,115 @@
+---
+title: "Local setup"
+description: "Run HealthIA locally for development"
+---
+
+## Prerequisites
+
+Before you start, make sure you have the following installed:
+
+- **Python 3.10+**
+- **Node.js 18+**
+- **Git**
+
+## Clone the repository
+
+```bash
+git clone https://github.com/Rafael-Lee1/healthia-diagnostico-inteligente.git
+cd healthia-diagnostico-inteligente
+```
+
+## Backend setup
+
+<Steps>
+  <Step title="Navigate to the backend directory">
+    ```bash
+    cd HEALTHIA
+    ```
+  </Step>
+
+  <Step title="Install Python dependencies">
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+    This installs FastAPI, uvicorn, scikit-learn, XGBoost, pandas, and all other required packages.
+  </Step>
+
+  <Step title="Verify model files">
+    The `model/` directory must contain these pre-trained files before the server can start:
+
+    - `modelo_HealthIA.json` — the trained XGBoost model
+    - `vetorizador_HealthIA.pkl` — the symptom vectorizer
+    - `encoderY_HealthIA.pkl` — the diagnosis label encoder
+
+    <Note>
+      These files are part of the repository. If they are missing, the prediction endpoint will fail to load.
+    </Note>
+  </Step>
+
+  <Step title="Start the backend server">
+    ```bash
+    uvicorn main:app --reload
+    ```
+
+    The API starts on port `8000`. You can verify it is running by opening:
+
+    ```
+    http://127.0.0.1:8000/
+    ```
+
+    You should receive:
+
+    ```json
+    {"Message": "Welcome to HealthIA API"}
+    ```
+  </Step>
+</Steps>
+
+## Frontend setup
+
+<Steps>
+  <Step title="Navigate to the frontend directory">
+    Open a new terminal and run:
+
+    ```bash
+    cd frontend
+    ```
+  </Step>
+
+  <Step title="Install Node.js dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Copy the example environment file:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+    Open `.env` and confirm the value points to the local backend:
+
+    ```bash
+    VITE_API_BASE_URL=http://127.0.0.1:8000
+    ```
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    npm run dev
+    ```
+
+    The frontend starts on port `5173`. Open your browser to:
+
+    ```
+    http://localhost:5173
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  The backend must be running before the frontend can connect to it. Start the uvicorn server first, then start the Vite dev server.
+</Warning>

@@ -1,0 +1,98 @@
+---
+title: 'Architecture overview'
+description: 'High-level system design of HealthIA'
+---
+
+HealthIA is a two-layer system composed of a **FastAPI backend** that runs an XGBoost classifier and a **React frontend** that collects symptoms and presents the predicted diagnosis to the user. The two layers communicate exclusively over HTTP — there is no shared database, no message queue, and no server-side session state.
+
+## Request flow
+
+The following sequence describes one complete prediction cycle:
+
+<Steps>
+  <Step title="User enters symptoms">
+    The user types or selects individual symptoms in the `SymptomInput` component. Each symptom is stored as a tag in local React state.
+  </Step>
+  <Step title="Frontend sends the prediction request">
+    On form submission, `api.predictSymptoms(symptoms)` joins the symptom array with commas and issues:
+
+    ```
+    GET /predict/?sintomas=febre,cansaço,dor+no+corpo
+    ```
+  </Step>
+  <Step title="FastAPI routes the request">
+    `sintomasAPI.py` receives the query parameter, splits it back into a list, and delegates to `DiagnosticoIA.predict_simples()`.
+  </Step>
+  <Step title="Model inference">
+    The service joins the symptom list into a single string, applies the pre-loaded TF-IDF vectorizer to produce a sparse feature matrix, and feeds it to the XGBoost classifier. The predicted integer label is decoded back to a condition name via the `LabelEncoder`.
+  </Step>
+  <Step title="JSON response">
+    FastAPI returns:
+
+    ```json
+    {
+      "sintomas": ["febre", "cansaço", "dor no corpo"],
+      "diagnostico_previsto": ["febre_maculosa"]
+    }
+    ```
+  </Step>
+  <Step title="Frontend renders the result">
+    `PredictionResult` displays the diagnosis in a human-readable format, saves the entry to `localStorage` via `useDiagnosisHistory`, and exposes an export-to-text action.
+  </Step>
+</Steps>
+
+## Component diagram
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      Browser (React SPA)                     │
+│                                                              │
+│  ┌──────────┐  ┌───────────────┐  ┌──────────────────────┐  │
+│  │  Header  │  │ SymptomInput  │  │   PredictionResult   │  │
+│  └──────────┘  └──────┬────────┘  └──────────────────────┘  │
+│                        │                                     │
+│              ┌─────────▼──────────┐                         │
+│              │  services/api.ts   │  (fetch + VITE_API_URL)  │
+│              └─────────┬──────────┘                         │
+└────────────────────────┼─────────────────────────────────────┘
+                         │  HTTP GET /predict/?sintomas=...
+┌────────────────────────▼─────────────────────────────────────┐
+│                   FastAPI (Python)                           │
+│                                                              │
+│  main.py ──► CORSMiddleware ──► sintomasAPI.py (router)      │
+│                                        │                    │
+│                              executarService.py             │
+│                              (DiagnosticoIA)                │
+│                                  │                          │
+│               ┌──────────────────┼───────────────────┐      │
+│               ▼                  ▼                   ▼      │
+│       modelo_HealthIA   vetorizador_HealthIA  encoderY_HealthIA │
+│           .json              .pkl                 .pkl       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Technology choices
+
+| Technology | Role | Reason |
+|---|---|---|
+| **FastAPI** | HTTP API server | Async-first, automatic OpenAPI docs, minimal boilerplate for small services |
+| **XGBoost** | Multi-class classifier | Gradient-boosted trees generalize well on small tabular datasets (~200 rows) without requiring a GPU |
+| **TF-IDF** | Text vectorization | Converts free-text symptom strings into weighted term-frequency feature vectors without needing embeddings or a language model |
+| **scikit-learn `LabelEncoder`** | Target encoding | Maps 20 condition names to sequential integers expected by XGBoost |
+| **React 18 + TypeScript** | Frontend SPA | Component model maps cleanly to the symptom-input → result display flow; TypeScript catches API contract mismatches at build time |
+| **Vite** | Frontend build tool | Sub-second HMR during development, fast production builds |
+| **Tailwind CSS** | Styling | Utility-first approach keeps component styles co-located without a separate stylesheet layer |
+
+## Sub-pages
+
+<Columns cols={3}>
+  <Card title="Backend" icon="server" href="/architecture/backend">
+    FastAPI entry point, CORS configuration, routing, and the `DiagnosticoIA` service class.
+  </Card>
+  <Card title="Frontend" icon="monitor" href="/architecture/frontend">
+    React component tree, custom hooks, and the API service layer.
+  </Card>
+  <Card title="ML model" icon="brain" href="/architecture/ml-model">
+    Dataset, TF-IDF vectorization, XGBoost training pipeline, and model artifacts.
+  </Card>
+</Columns>

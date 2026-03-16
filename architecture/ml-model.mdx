@@ -1,0 +1,234 @@
+---
+title: 'ML model'
+description: 'XGBoost classifier, TF-IDF vectorization, and training pipeline'
+---
+
+The HealthIA model is an XGBoost multi-class classifier that maps a free-text symptom string to one of 20 medical conditions. The full training pipeline is implemented in pure Python using scikit-learn and XGBoost, with no external data sources.
+
+## Dataset
+
+The dataset is defined inline in `services/datasetService.py` as a Python list of `(symptoms_string, condition_label)` tuples. It contains approximately 200 labeled examples across 20 conditions:
+
+| Condition | Examples |
+|---|---|
+| `anemia_falciforme` | 13 |
+| `artrite_reumatoide` | 15 |
+| `diabetes_tipo1` | 13 |
+| `doenca_alzheimer` | 13 |
+| `doenca_crohn` | 12 |
+| `doenca_lyme` | 14 |
+| `doenca_parkinson` | 13 |
+| `doenca_wilson` | 10 |
+| `esclerose_lateral` | 11 |
+| `esclerose_multipla` | 13 |
+| `febre_maculosa` | 13 |
+| `fibromialgia` | 13 |
+| `hipertireoidismo` | 13 |
+| `hipotireoidismo` | 14 |
+| `lupus` | 13 |
+| `miastenia_gravis` | 13 |
+| `porfiria` | 12 |
+| `sarcoidose` | 14 |
+| `sindrome_fadiga_cronica` | 13 |
+| `sindrome_sjogren` | 11 |
+
+The dataset is loaded as a pandas DataFrame with two columns — `sintomas` and `diagnostico`:
+
+```python services/datasetService.py
+import pandas as pd
+
+dados = [
+    ("cansaço extremo dor articular severa crises dolorosas mal estar geral", "anemia_falciforme"),
+    ("dor articular crônica juntas inchadas rigidez matinal", "artrite_reumatoide"),
+    # ... ~200 entries total
+]
+
+def dataset_completo():
+    df = pd.DataFrame(dados, columns=["sintomas", "diagnostico"])
+    return df
+```
+
+<Note>
+  Each symptom string is a space-separated sequence of Portuguese medical terms. There are no punctuation marks or special tokens — the raw strings feed directly into `TfidfVectorizer`.
+</Note>
+
+## Vectorization — TF-IDF
+
+`services/vetorizacaoService.py` uses scikit-learn's `TfidfVectorizer` to convert symptom strings into sparse numeric feature vectors:
+
+```python services/vetorizacaoService.py
+from sklearn.feature_extraction.text import TfidfVectorizer
+from services.datasetService import dataset_completo
+from sklearn.preprocessing import LabelEncoder
+
+def vetorizador():
+    """Creates a TF-IDF vectorizer fitted on the full dataset."""
+    tfidf = TfidfVectorizer()
+    df = dataset_completo()
+    X = df["sintomas"].astype(str)
+    tfidf.fit(X)
+    return tfidf
+
+def vetorizacao():
+    """Returns the TF-IDF-transformed feature matrix X."""
+    tfidf = TfidfVectorizer()
+    df = dataset_completo()
+    X = df["sintomas"].astype(str)
+    tfidf.fit(X)
+    X_tfidf = tfidf.transform(X)
+    return X_tfidf
+
+def encode_Y():
+    """Label-encodes the target column."""
+    label_encoder = LabelEncoder()
+    df = dataset_completo()
+    Y = df["diagnostico"].astype(str)
+    Y_encoded = label_encoder.fit_transform(Y)
+    return Y_encoded
+```
+
+TF-IDF assigns higher weights to terms that appear frequently in a document but rarely across the whole corpus. Because each condition has a distinctive vocabulary (e.g., `tremores` and `rigidez` for Parkinson, `sede excessiva` and `poliúria` for diabetes), TF-IDF separates the classes effectively without requiring dense embeddings.
+
+## Training pipeline
+
+`services/treinamentoService.py` coordinates data loading, splitting, training, and evaluation:
+
+```python services/treinamentoService.py
+from services.vetorizacaoService import vetorizacao, encode_Y
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from xgboost import XGBClassifier as XGBoost
+
+def buscar_dados():
+    X = vetorizacao()
+    Y = encode_Y()
+    return X, Y
+
+def separar_dados():
+    X, Y = buscar_dados()
+    X_treino, X_teste, Y_treino, Y_teste = train_test_split(
+        X, Y, test_size=0.3, random_state=42
+    )
+    return X_treino, X_teste, Y_treino, Y_teste
+
+def treinar_modelo():
+    X_treino = separar_dados()[0]
+    Y_treino = separar_dados()[2]
+
+    HealthIA = XGBoost(
+        n_estimators=150,
+        learning_rate=0.03,
+        max_depth=3,
+        min_child_weight=1,
+        random_state=42
+    )
+    HealthIA.fit(X_treino, Y_treino)
+    return HealthIA
+
+def acuracia_modelo():
+    HealthIA = treinar_modelo()
+    X_teste = separar_dados()[1]
+    Y_teste = separar_dados()[3]
+    Y_pred = HealthIA.predict(X_teste)
+    acuracia = accuracy_score(Y_teste, Y_pred)
+    return acuracia * 100
+```
+
+### Hyperparameters
+
+| Parameter | Value | Effect |
+|---|---|---|
+| `n_estimators` | 150 | Number of boosting rounds |
+| `learning_rate` | 0.03 | Step size shrinkage — reduces overfitting on a small dataset |
+| `max_depth` | 3 | Maximum tree depth — limits model complexity |
+| `min_child_weight` | 1 | Minimum sum of instance weights in a leaf |
+| `random_state` | 42 | Reproducible splits and tree construction |
+
+### Train/test split
+
+The dataset is split **70% train / 30% test** using `random_state=42` for reproducibility. Accuracy is measured with `sklearn.metrics.accuracy_score` on the held-out test set and returned as a percentage.
+
+## Model artifacts
+
+`services/salvarmodelService.py` persists the three trained artifacts to the `model/` directory:
+
+```python services/salvarmodelService.py
+import pickle
+import os
+from services.vetorizacaoService import vetorizador, encode_Y
+from services.treinamentoService import treinar_modelo
+
+def salvar_vetorizador():
+    vetorizador_criado = vetorizador()
+    caminho_arquivo = 'model/vetorizador_HealthIA.pkl'
+    os.makedirs(os.path.dirname(caminho_arquivo), exist_ok=True)
+    with open(caminho_arquivo, "wb") as f:
+        pickle.dump(vetorizador_criado, f)
+
+def salvar_encoderY():
+    encoderY_criado = encode_Y()
+    caminho_arquivo = 'model/encoderY_HealthIA.pkl'
+    os.makedirs(os.path.dirname(caminho_arquivo), exist_ok=True)
+    with open(caminho_arquivo, "wb") as f:
+        pickle.dump(encoderY_criado, f)
+
+def salvar_modelo():
+    HealthIA = treinar_modelo()
+    caminho_arquivo = 'model/modelo_HealthIA.json'
+    os.makedirs(os.path.dirname(caminho_arquivo), exist_ok=True)
+    HealthIA.save_model(caminho_arquivo)
+```
+
+| Artifact | File | Format | Serializer |
+|---|---|---|---|
+| XGBoost classifier | `model/modelo_HealthIA.json` | XGBoost native JSON | `XGBClassifier.save_model()` |
+| TF-IDF vectorizer | `model/vetorizador_HealthIA.pkl` | Python pickle | `pickle.dump()` |
+| Label encoder | `model/encoderY_HealthIA.pkl` | Python pickle | `pickle.dump()` |
+
+<Note>
+  The vectorizer is saved using `pickle`, not `joblib`, in `salvarmodelService.py`. At inference time in `executarService.py`, it is loaded with `joblib.load()`. Both formats are compatible for sklearn objects — `joblib.load()` can read files written with `pickle.dump()`.
+</Note>
+
+## Retraining workflow
+
+To retrain the model and overwrite the artifacts in `model/`, run `leitura.py` from the `HEALTHIA/` directory:
+
+```python leitura.py
+from services.salvarmodelService import salvar_vetorizador, salvar_encoderY, salvar_modelo
+
+if __name__ == "__main__":
+    salvar_modelo_healthIA()   # trains and saves modelo_HealthIA.json
+    salvar_vetorizador_healthIA()  # fits and saves vetorizador_HealthIA.pkl
+    salvar_encoderY_healthIA()     # encodes and saves encoderY_HealthIA.pkl
+```
+
+<Steps>
+  <Step title="Run the training script">
+    From the `HEALTHIA/` directory:
+
+    ```bash
+    python leitura.py
+    ```
+  </Step>
+  <Step title="Verify the artifacts">
+    Three files should be updated in `model/`:
+
+    ```
+    model/
+    ├── modelo_HealthIA.json
+    ├── vetorizador_HealthIA.pkl
+    └── encoderY_HealthIA.pkl
+    ```
+  </Step>
+  <Step title="Restart the API server">
+    `DiagnosticoIA` loads artifacts at startup. Restart Uvicorn so the new files are loaded into memory:
+
+    ```bash
+    uvicorn main:app --reload
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  Running `leitura.py` overwrites the existing artifacts without versioning. Back up the `model/` directory before retraining if you need to preserve the current model.
+</Warning>

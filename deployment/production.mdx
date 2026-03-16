@@ -1,0 +1,111 @@
+---
+title: "Production deployment"
+description: "Deploy HealthIA backend and frontend to production"
+---
+
+## Backend on Railway
+
+<Steps>
+  <Step title="Create a new Railway service">
+    In your Railway project, create a new service and connect it to your GitHub repository.
+  </Step>
+
+  <Step title="Set the root directory">
+    In the service settings, set the **Root Directory** to:
+
+    ```
+    HEALTHIA
+    ```
+
+    Railway will install dependencies from `requirements.txt` automatically.
+  </Step>
+
+  <Step title="Set the start command">
+    In the service settings, set the **Start Command** to:
+
+    ```bash
+    uvicorn main:app --host 0.0.0.0 --port $PORT
+    ```
+
+    Railway injects `$PORT` at runtime. Do not hardcode a port number.
+  </Step>
+
+  <Step title="Configure CORS for your frontend domain">
+    Set one of the following environment variables in the Railway service:
+
+    <CodeGroup>
+
+    ```bash Single domain
+    FRONTEND_URL=https://your-frontend.vercel.app
+    ```
+
+    ```bash Multiple domains
+    FRONTEND_URLS=https://your-frontend.vercel.app,https://your-staging.vercel.app
+    ```
+
+    </CodeGroup>
+
+    <Note>
+      If your frontend is also hosted on Railway, its `*.up.railway.app` domain is automatically allowed — no variable needed.
+    </Note>
+  </Step>
+
+  <Step title="Verify model files are present">
+    Confirm the `model/` directory contains the required files:
+
+    - `modelo_HealthIA.json`
+    - `vetorizador_HealthIA.pkl`
+    - `encoderY_HealthIA.pkl`
+
+    These files must be committed to the repository and included in the Railway build.
+  </Step>
+</Steps>
+
+<Tip>
+  After deployment, test the `/predict/` endpoint before launching. Send a POST request with a sample symptom list and confirm you receive a diagnosis response with the expected structure.
+</Tip>
+
+## Frontend on Vercel, Netlify, or Railway
+
+<Steps>
+  <Step title="Set the build command">
+    ```bash
+    npm run build
+    ```
+
+    This runs `tsc -b && vite build` and outputs the compiled assets.
+  </Step>
+
+  <Step title="Set the output directory">
+    ```
+    dist
+    ```
+  </Step>
+
+  <Step title="Set the VITE_API_BASE_URL environment variable">
+    In your hosting platform's environment variable settings, add:
+
+    ```bash
+    VITE_API_BASE_URL=https://healthia-backend.up.railway.app
+    ```
+
+    Replace the URL with your actual Railway backend domain.
+
+    <Warning>
+      `VITE_API_BASE_URL` must be set before the build runs. Vite reads it at build time and embeds it into the output bundle. Setting it after the build has no effect.
+    </Warning>
+  </Step>
+
+  <Step title="Trigger a deployment">
+    Push your changes or trigger a manual deploy. The frontend will connect to your production backend automatically.
+  </Step>
+</Steps>
+
+## Pre-launch checklist
+
+Before going live, verify each of the following:
+
+- [ ] Model files (`modelo_HealthIA.json`, `vetorizador_HealthIA.pkl`, `encoderY_HealthIA.pkl`) are present in the `model/` directory
+- [ ] CORS is correctly configured — `FRONTEND_URL` or `FRONTEND_URLS` points to your production frontend domain
+- [ ] `VITE_API_BASE_URL` is set to the production backend URL and the frontend was built after setting it
+- [ ] `ALLOW_ALL_ORIGINS` is **not** set to `"true"` in the production backend environment

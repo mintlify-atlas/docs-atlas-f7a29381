@@ -1,0 +1,99 @@
+---
+title: 'Diagnosis prediction'
+description: 'Understanding how HealthIA generates and displays diagnosis results'
+---
+
+<Warning>
+HealthIA is not a substitute for professional medical advice. Results are intended as initial triage support only. Always consult a qualified healthcare professional for any medical concern.
+</Warning>
+
+HealthIA sends your symptom list to a FastAPI backend and displays the model's predicted diagnosis in a human-readable format.
+
+## Prediction workflow
+
+<Steps>
+  <Step title="Enter symptoms">
+    Add between 2 and 8 symptoms using the symptom input panel. See [Symptom input](/features/symptom-input) for details.
+  </Step>
+  <Step title="Submit the form">
+    Click **Gerar diagnóstico**. The button shows a loading spinner and its label changes to **Analisando sintomas...** while the request is in flight.
+  </Step>
+  <Step title="API call">
+    The interface calls `POST /predict` on the FastAPI backend, sending the deduplicated symptom list. The **Gerar diagnóstico** button is disabled until the response arrives.
+  </Step>
+  <Step title="Result display">
+    The result card replaces the placeholder on the right side of the page, showing the predicted diagnosis, the symptoms that were analysed, and a timestamp.
+  </Step>
+</Steps>
+
+## What the result shows
+
+The result card contains three pieces of information:
+
+<CardGroup cols={3}>
+  <Card title="Predicted diagnosis" icon="stethoscope">
+    One or more diagnosis labels, formatted as readable text and displayed as pills on a gradient card.
+  </Card>
+  <Card title="Symptoms analysed" icon="list">
+    The exact symptom list that was sent to the model, echoed back from the API response (`sintomas` field).
+  </Card>
+  <Card title="Timestamp" icon="clock">
+    The local date and time the analysis was generated, formatted as `DD/MM/YYYY HH:MM` (Brazilian Portuguese locale).
+  </Card>
+</CardGroup>
+
+## Diagnosis label formatting
+
+The API returns diagnosis labels as raw strings (e.g. `doenca_lyme`). HealthIA transforms them into readable text using the `formatDiagnosisLabel` function:
+
+1. The prefix `doenca_` is replaced with `Doença `
+2. Remaining underscores are replaced with spaces
+3. Each word is title-cased
+
+```text
+doenca_lyme      → Doença Lyme
+diabetes_tipo_2  → Diabetes Tipo 2
+hipertensao      → Hipertensao
+```
+
+The same formatting is applied everywhere a diagnosis label is displayed — in the result card, the history panel, and exported files.
+
+## API status indicator
+
+The header shows a live connection status for the FastAPI backend. The status is determined by calling the welcome endpoint on page load.
+
+| Status | Meaning |
+|---|---|
+| **Conectando** | Initial check in progress |
+| **API online** | Backend responded successfully; the welcome message is displayed |
+| **Sem conexão** | Backend did not respond; prediction will fail |
+
+The same status is also reflected in the **Ambiente** stat card at the top of the page.
+
+## Loading state
+
+While a prediction request is in flight:
+
+- The **Gerar diagnóstico** button displays a spinner and the label **Analisando sintomas...**
+- The button is disabled to prevent duplicate submissions
+- The **Limpar sintomas** button is also disabled
+
+## Error handling
+
+If the API call fails for any reason (network error, backend offline, unhandled exception), an error banner appears below the submit button:
+
+> Não foi possível concluir a análise agora. Verifique se o backend está em execução e tente novamente.
+
+No partial or cached result is shown. Resolve the backend issue and resubmit.
+
+<Note>
+If the API status indicator shows **Sem conexão** before you submit, the prediction will fail. Ensure the FastAPI server is running before generating a diagnosis.
+</Note>
+
+## Medical disclaimer
+
+A disclaimer banner is rendered both below the symptom input form and at the bottom of every result card:
+
+> **Aviso médico:** Esta ferramenta é de apoio e não substitui avaliação médica profissional.
+
+This notice is always visible to reinforce that HealthIA provides decision-support output, not a clinical diagnosis. The same text is also included in every exported result file.

@@ -1,0 +1,101 @@
+---
+title: 'GET /predict/'
+description: 'Predict medical diagnosis from symptoms'
+---
+
+Accepts a comma-separated list of symptoms and returns a predicted medical diagnosis. The prediction is produced by an XGBoost classifier trained on a labeled symptom-to-diagnosis dataset.
+
+## Request
+
+**Method:** `GET`  
+**Path:** `/predict/`
+
+### Query parameters
+
+<ParamField query="sintomas" type="string" required>
+  A comma-separated string of symptoms in Portuguese. Symptoms must match the vocabulary used in the training dataset.
+
+  Example: `febre,cansaço,dor no corpo`
+</ParamField>
+
+<Tip>
+  Submit between 2 and 8 symptoms for the best prediction results. This matches the validation applied in the frontend before the request is sent.
+</Tip>
+
+### Example symptoms
+
+The following symptoms are examples drawn from the training vocabulary:
+
+- `febre` (fever)
+- `cansaço` (fatigue)
+- `dor no corpo` (body ache)
+- `tremores` (tremors)
+- `rigidez muscular` (muscle stiffness)
+- `dor de cabeça` (headache)
+- `náusea` (nausea)
+- `tosse` (cough)
+
+<Warning>
+  Symptoms must be in Portuguese and must match terms in the training dataset. Unrecognized terms may produce inaccurate predictions.
+</Warning>
+
+## Response
+
+<ResponseField name="sintomas" type="string[]" required>
+  The list of symptoms as parsed from the `sintomas` query parameter, split on commas.
+</ResponseField>
+
+<ResponseField name="diagnostico_previsto" type="string[]" required>
+  An array containing the predicted diagnosis label. The model returns a single prediction as a one-element array.
+</ResponseField>
+
+```json
+{
+  "sintomas": ["febre", "cansaço", "dor no corpo"],
+  "diagnostico_previsto": ["doenca_lyme"]
+}
+```
+
+## HTTP status codes
+
+| Code | Description |
+| --- | --- |
+| `200 OK` | Prediction completed successfully |
+| `500 Internal Server Error` | The model failed to produce a prediction |
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL
+curl "http://127.0.0.1:8000/predict/?sintomas=febre,can%C3%A7o,dor%20no%20corpo"
+```
+
+```typescript TypeScript
+import { api } from '@/services/api';
+import type { PredictResponse } from '@/types/api';
+
+const symptoms = ['febre', 'cansaço', 'dor no corpo'];
+const response: PredictResponse = await api.predictSymptoms(symptoms);
+
+console.log(response.sintomas);           // ["febre", "cansaço", "dor no corpo"]
+console.log(response.diagnostico_previsto); // ["doenca_lyme"]
+```
+
+```python Python
+import requests
+
+params = {'sintomas': 'febre,cansaço,dor no corpo'}
+response = requests.get('http://127.0.0.1:8000/predict/', params=params)
+response.raise_for_status()
+
+data = response.json()
+print(data['sintomas'])              # ['febre', 'cansaço', 'dor no corpo']
+print(data['diagnostico_previsto'])  # ['doenca_lyme']
+```
+
+</CodeGroup>
+
+<Note>
+  The frontend method `api.predictSymptoms(symptoms)` accepts a `string[]` and joins the values with commas before encoding the query string with `encodeURIComponent`. See `src/services/api.ts` for the implementation.
+</Note>

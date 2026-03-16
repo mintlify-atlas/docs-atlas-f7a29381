@@ -1,0 +1,114 @@
+---
+title: 'Symptom input'
+description: 'How to enter and manage symptoms in the HealthIA interface'
+---
+
+The symptom input panel is the starting point for every analysis in HealthIA. You describe what you are experiencing and the interface sends that list to the prediction model.
+
+## Overview
+
+The input panel sits on the left side of the home page. It contains:
+
+- A tag-style input field where confirmed symptoms appear as removable chips
+- A free-text box for typing new symptoms
+- A quick-suggestions row drawn from the built-in symptom library
+- A counter showing how many symptoms are active out of the allowed maximum
+- Inline validation messages when constraints are violated
+
+## Entering symptoms
+
+### Typing free-text
+
+Click inside the input box and type any symptom in plain language. Commit it to the list using any of the following:
+
+- Press **Enter**
+- Press **,** (comma)
+- Press **Tab**
+
+The typed text is trimmed, deduplicated, and added as a chip. The text box then clears so you can type the next symptom.
+
+### Pasting a comma-separated list
+
+You can paste a comma-separated, semicolon-separated, or newline-separated list directly into the input box. HealthIA splits the pasted text on those delimiters and adds each token as a separate symptom in one action.
+
+```text
+febre, cansaço, dor no corpo
+```
+
+<Tip>
+Use simple, objective terms. Describe the symptom itself rather than a cause or diagnosis. For example, use **fraqueza** instead of "I think I have anemia", or **visão turva** instead of "eye problems".
+</Tip>
+
+### Using autocomplete suggestions
+
+Below the input box, HealthIA shows up to 10 quick-suggestion buttons drawn from the built-in common symptom list. As you type, the list filters to show up to 6 suggestions that match your query. Click any suggestion to add it immediately — no need to press Enter.
+
+Already-added symptoms are excluded from the suggestion list automatically.
+
+#### Built-in common symptoms
+
+<AccordionGroup>
+  <Accordion title="Full list of common symptoms">
+    | Symptom | Symptom |
+    |---|---|
+    | febre | taquicardia |
+    | cansaço | boca seca |
+    | fadiga | olhos ressecados |
+    | dor no corpo | manchas na pele |
+    | dor muscular | confusão |
+    | dor articular | perda de peso |
+    | fraqueza | dor abdominal |
+    | visão turva | diarreia |
+    | visão dupla | fotofobia |
+    | dificuldade para engolir | insônia |
+    | tremores | falta de ar |
+    | rigidez muscular | tosse seca |
+    | náusea | vômito |
+    | palidez | sensibilidade ao frio |
+  </Accordion>
+</AccordionGroup>
+
+## Symptom constraints
+
+HealthIA enforces minimum and maximum limits to keep the prediction model accurate.
+
+| Constraint | Value |
+|---|---|
+| Minimum symptoms required | **2** |
+| Maximum symptoms allowed | **8** |
+
+The counter in the top-right corner of the panel always shows your current count against the maximum (e.g. `3/8 sintomas • mínimo de 2`).
+
+## Removing symptoms
+
+Each symptom chip has an **×** button. Click it to remove that symptom from the list. You can also clear every symptom at once using the **Limpar sintomas** button below the input panel.
+
+## Validation errors
+
+Validation runs when you submit the form. Two errors are possible:
+
+<AccordionGroup>
+  <Accordion title="Too few symptoms">
+    If you submit fewer than 2 unique symptoms, the form shows:
+
+    > Informe pelo menos 2 sintomas para gerar uma análise consistente.
+
+    Add more symptoms and try again.
+  </Accordion>
+  <Accordion title="Too many symptoms">
+    If duplicates are removed and the result still exceeds 8 symptoms, the form shows:
+
+    > Use no máximo 8 sintomas por análise.
+
+    Remove some symptoms until the counter shows 8 or fewer.
+  </Accordion>
+</AccordionGroup>
+
+Duplicate detection is accent-insensitive and case-insensitive. Typing **Febre** when **febre** is already in the list produces a feedback message instead of adding a second chip.
+
+## Tips for good symptom descriptions
+
+- Use everyday language, not medical jargon
+- Describe a single symptom per entry (not "fever and chills" as one entry)
+- Be specific: **dor articular** is more useful than **dor**
+- Avoid duration or severity qualifiers in the symptom text itself; the model works on symptom presence, not intensity

@@ -1,0 +1,78 @@
+---
+title: "Environment variables"
+description: "All configuration options for HealthIA backend and frontend"
+---
+
+## Backend variables
+
+Set these as OS environment variables or via your process manager (e.g., Railway, systemd, Docker).
+
+| Variable | Default | Description |
+|---|---|---|
+| `FRONTEND_URLS` | `""` | Comma-separated list of additional allowed CORS origins |
+| `FRONTEND_URL` | `""` | Single additional allowed CORS origin |
+| `ALLOW_ALL_ORIGINS` | `"false"` | Set to `"true"` to allow all origins (development only) |
+
+### FRONTEND_URLS
+
+Use this variable when your frontend is deployed to multiple domains, or when you have staging and production environments that both need access:
+
+```bash
+FRONTEND_URLS=https://app.example.com,https://staging.example.com
+```
+
+Each URL is trimmed of whitespace and trailing slashes before being added to the CORS allow-list.
+
+### FRONTEND_URL
+
+Use this variable when you have a single frontend domain:
+
+```bash
+FRONTEND_URL=https://app.example.com
+```
+
+### ALLOW_ALL_ORIGINS
+
+```bash
+ALLOW_ALL_ORIGINS=true
+```
+
+When set to `"true"`, the backend passes `allow_origins=["*"]` to the CORS middleware and disables the Railway domain regex. This is useful during initial local development when you don't want to configure origins manually.
+
+<Warning>
+  Never set `ALLOW_ALL_ORIGINS=true` in production. It allows any domain to send cross-origin requests to your API, bypassing CORS protection entirely.
+</Warning>
+
+## Railway domain regex
+
+Regardless of the variables above, the backend automatically allows any origin matching the pattern:
+
+```
+^https://.*\.up\.railway\.app$
+```
+
+This means any Railway-hosted frontend (e.g., `https://healthia-frontend.up.railway.app`) is allowed without additional configuration. The regex is disabled only when `ALLOW_ALL_ORIGINS=true`.
+
+## Frontend variables
+
+Create a `.env` file in the `frontend/` directory. Vite reads this file at build time and bakes the values into the compiled output.
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://127.0.0.1:8000` | Base URL of the FastAPI backend |
+
+### Example .env file
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+For production, replace this with your deployed backend URL:
+
+```bash
+VITE_API_BASE_URL=https://healthia-backend.up.railway.app
+```
+
+<Note>
+  Because Vite bakes environment variables into the bundle at build time, you must set `VITE_API_BASE_URL` before running `npm run build`. Changing it after the build has no effect.
+</Note>
